@@ -11,18 +11,18 @@
 #define lengthofreference 3
 #define errormessagelength 255
 #define ncmax 20		// Note: ncmax is the max number of components
-#define numparams 72 
+#define numparams 72
 #define maxcoefs 50
 
 class TransportProps {
 public:
-	virtual void append(v8::Local<v8::Object> obj) = 0;
+	virtual void append(v8::Local<v8::Object> obj, v8::Isolate* iso) = 0;
 };
 
 class OnePhaseTransport : public TransportProps {
 public:
 	double mu, k;
-	void append(v8::Local<v8::Object> obj);
+	void append(v8::Local<v8::Object> obj, v8::Isolate* iso);
 };
 
 class TwoPhaseTransport : public TransportProps {
@@ -30,13 +30,13 @@ public:
 	double muL, muV, kL, kV;
 	double CPV, CPL, CVV, CVL; // do these belong here?  i don't know and i don't care
 	double sigma;
-	void append(v8::Local<v8::Object> obj);
+	void append(v8::Local<v8::Object> obj, v8::Isolate* iso);
 };
 
 class ThermoState {
 public:
-	v8::Local<v8::Object> toJs();
-	
+	v8::Local<v8::Object> toJs(v8::Isolate* iso);
+
 	double T;
 	double P;
 	double Z;
@@ -53,28 +53,28 @@ public:
 	double CP;
 	double W;
 	double molarMass;
-	
+
 	TransportProps* trnprp;
 };
 
-v8::Handle<v8::Value> setFluid(const v8::Arguments& args);
-v8::Handle<v8::Value> getFluid(const v8::Arguments& args);
-v8::Handle<v8::Value> statePoint(const v8::Arguments& args);
-	
+void setFluid(const v8::FunctionCallbackInfo<v8::Value>& args);
+void getFluid(const v8::FunctionCallbackInfo<v8::Value>& args);
+void statePoint(const v8::FunctionCallbackInfo<v8::Value>& args);
+
 class RefpropContext {
 public:
 	typedef void (RefpropContext::*FlashFcn)(ThermoState*);
 
-	static RefpropContext* instance();  // singleton pattern
-	
-	void setFluid(char* reqdFluid);
+	static RefpropContext* instance(v8::Isolate* iso);  // singleton pattern
+
+	void setFluid(char* reqdFluid, v8::Isolate* iso);
 	char* getFluid();
-	ThermoState* doFlash(const char props[], const double vals[]);
+	ThermoState* doFlash(const char props[], const double vals[], v8::Isolate* iso);
 
 private:
-	RefpropContext();  // constructor private to enforce singleton pattern
-	
-	static RefpropContext* _instance;	
+	RefpropContext(v8::Isolate* iso);  // constructor private to enforce singleton pattern
+
+	static RefpropContext* _instance;
 	char _fluid[refpropcharlength];
 	long ierr;
 	char herr[errormessagelength+1];
@@ -82,8 +82,8 @@ private:
 	HINSTANCE RefpropDllInstance;  // holds the DLL functions so we don't have to reload every time
 	char* flashString;
 	FlashFcn flashTable[7][7];
-	FlashFcn flashFcnLookup(const char props[2]);
-	
+	FlashFcn flashFcnLookup(const char props[2], v8::Isolate* iso);
+
 	ThermoState* thermoState();
 	void toMolar(ThermoState *obj);
 	void toSpecific(ThermoState *obj);
@@ -104,9 +104,9 @@ private:
 	void calcDE(ThermoState*);
 	void calcTQ(ThermoState*);
 	void calcPQ(ThermoState*);
-	
+
 	void doTransport(ThermoState* state);
-	
+
 	//Define explicit function pointers to refprop methods
 	fp_ABFL1dllTYPE ABFL1dll;
 	fp_ABFL2dllTYPE ABFL2dll;
